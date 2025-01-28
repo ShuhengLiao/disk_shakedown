@@ -187,7 +187,7 @@ def run_simulation(mesh,properties,load,omega,t_list,
 
 
 
-def check_PEEQ(PEEQ,period,tol=1e-7):
+def check_PEEQ(PEEQ,period,tol=2e-5):
     if (PEEQ[-1] - PEEQ[-(1+period)]) < tol:
         print ('PEEQ the next to last cycle = {}, PEEQ last cycle = {}, Shakedown!'.format(
             PEEQ[-(1+period)],PEEQ[-1]))
@@ -231,4 +231,4 @@ if __name__ == "__main__":
     PEEQ = results[:,1]
     period = (len(PEEQ)-1)/n_cyc
     assert period-int(period) == 0
-    SD_flag = check_PEEQ(PEEQ,int(period),tol=1e-8)
+    SD_flag = check_PEEQ(PEEQ,int(period),tol=2e-5)

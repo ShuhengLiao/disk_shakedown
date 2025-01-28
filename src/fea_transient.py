@@ -16,7 +16,9 @@ PETScOptions.set("mat_mumps_icntl_14", 400)
 
 def run_simulation(mesh,properties,load,omega,t_list,
                    Displacement_BC = 'free-free',
-                   plastic_inverval = 1):
+                   plastic_inverval = 1,
+                   output_inverval = 1,
+                   saveVTK = False):
     
     # material properties
     rho,cp,kappa,E,sig0,nu,alpha_V = properties
@@ -126,23 +128,26 @@ def run_simulation(mesh,properties,load,omega,t_list,
     Thermal_BC = [T_bc_L,T_bc_R]
 
     U_bc_B = DirichletBC(U.sub(1), 0., boundary_bot)
-#     U_bc_L = DirichletBC(U, Constant((0.,0.)), boundary_left)
     U_bc_L = DirichletBC(U.sub(0), 0., boundary_left)
     if Displacement_BC == 'fix-free':
         Mech_BC = [U_bc_B,U_bc_L]
     else:
         Mech_BC = [U_bc_B]
-        
     
     P0 = FunctionSpace(mesh, "DG", 0)
-    p_avg = Function(P0)
-    T_crt = Function(V)
+    p_avg = Function(P0,name="Plastic strain")
+    T_crt = Function(V, name="Temperature")
     dT = Function(V)
 
-    PEEQ = [0.]
+    PEEQ = [p_avg.vector()]
 
     tol = 1e-5
     Nitermax = 50
+    
+    if saveVTK:
+        T_vtk_file = File('sols/T.pvd')
+        u_vtk_file = File(f'./sols/u.pvd')
+        p_vtk_file = File(f'./sols/p.pvd')
 
     for n in range(len(t_list)-1): 
         dt.assign(t_list[n+1]-t_list[n])
@@ -183,18 +188,25 @@ def run_simulation(mesh,properties,load,omega,t_list,
             T_old.assign(T_crt)
             sig_old.assign(sig)
 
-            PEEQ.append(p_avg.vector().max()) 
+            PEEQ.append(p_avg.vector()) 
             
-    return np.vstack((t_list,PEEQ)).T
+        if (n+1)% output_inverval == 0 and saveVTK:
+            u_vtk_file << (u, t_list[n+1])
+            p_vtk_file << (p_avg, t_list[n+1])
+            T_vtk_file << (T_crt, t_list[n+1])
+  
+            
+    return np.array(t_list),np.array(PEEQ)
 
-def check_PEEQ(PEEQ,period,tol=1e-7):
-    if (PEEQ[-1] - PEEQ[-(1+period)]) < tol:
-        print ('PEEQ the next to last cycle = {}, PEEQ last cycle = {}, Shakedown!'.format(
-            PEEQ[-(1+period)],PEEQ[-1]))
+def check_PEEQ(PEEQ,period,tol=2e-5):
+    if (PEEQ[-1] - PEEQ[-(1+period)]).max() < tol:
+        print ('max PEEQ the next to last cycle = {}, max PEEQ last cycle = {}, Shakedown!'.format(
+            PEEQ[-(1+period)].max(),PEEQ[-1].max()))
         return 1
     else:
-        print ('PEEQ the next to last cycle = {}, PEEQ last cycle = {}, Not shakedown!'.format(
-            PEEQ[-(1+period)],PEEQ[-1]))
+        ind = (PEEQ[-1] - PEEQ[-(1+period)]).argmax()
+        print ('Critical Element: {}, PEEQ the next to last cycle = {}, PEEQ last cycle = {}, Not shakedown!'.format(ind,
+            PEEQ[-(1+period),ind],PEEQ[-1,ind]))
         return 0
 
 
@@ -204,17 +216,20 @@ if __name__ == "__main__":
 
     comp_list = np.linspace(1.,1.,1) # a list defining the composition, e.g., [1,0.9,0.5,0.4,0.3]
 
-    omega = 3800. # omega: rad/s
-    T_load = 300. # T
+    omega = 2800. # omega: rad/s
+    T_load = 600. # T
     t_rise = 1. # time to heat to the max temp.
     t_heatdwell = 20. # heating dwell time
     t_fall = 3. # time to cool to the ambient temp
     t_cooldwell = 600. # cooling dwell time
-    n_cyc = 10 # number of simulated cycles
+    n_cyc = 30 # number of simulated cycles
 
     time_step = 1. # time step size
-    time_step_coarse = 10. # use a coarser time step at during cooling dwell
-    plastic_inverval = 1 # elasto-plastic simulation every N thermal time step
+    time_step_coarse = 1. # use a coarser time step at during cooling dwell
+    plastic_interval = 1 # elasto-plastic simulation every N thermal time step
+    saveVTK = True
+    output_intervel = 1 # output vtk file 
+                           
 
     Displacement_BC = 'fix-free' # fix-free or free-free
     
@@ -227,9 +242,8 @@ if __name__ == "__main__":
     t_fine = t_rise + t_heatdwell + t_fall*2.
     t_list = get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc)
     
-    results = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_inverval)
+    t_list,PEEQ = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK)
     
-    PEEQ = results[:,1]
     period = (len(PEEQ)-1)/n_cyc
     assert period-int(period) == 0
-    SD_flag = check_PEEQ(PEEQ,int(period),tol=1e-7)
+    SD_flag = check_PEEQ(PEEQ,int(period),tol=2e-5)
