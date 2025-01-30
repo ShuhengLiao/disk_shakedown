@@ -28,6 +28,31 @@ def composition2property_IN718_INVAR(comp_list):
     alphaV = comp_list*alphaV1 + (1-comp_list)*alphaV2
     return rho,cp,kappa,E,sig0,nu,alphaV
 
+
+def get_composition2property_from_csv(filename):
+    csvdata = np.loadtxt(filename,delimiter=',',skiprows=1)
+    def comp2prop(comp_list):
+        comp_values = csvdata[:,0]
+
+        E_values = csvdata[:,1]
+        nu_values = csvdata[:,2]
+        sig0_values = csvdata[:,3]
+        alphaV_values = csvdata[:,4]
+        kappa_values = csvdata[:,5]
+        rho_values = csvdata[:,6]
+        cp_values = csvdata[:,7]
+
+        rho = np.interp(comp_list,comp_values,rho_values)
+        kappa = np.interp(comp_list,comp_values,kappa_values)
+        cp = np.interp(comp_list,comp_values,cp_values)
+        E = np.interp(comp_list,comp_values,E_values)
+        sig0 = np.interp(comp_list,comp_values,sig0_values)
+        nu = np.interp(comp_list,comp_values,nu_values)
+        alphaV = np.interp(comp_list,comp_values,alphaV_values)
+        return rho,cp,kappa,E,sig0,nu,alphaV
+    return comp2prop
+
+
 def get_properties(mesh,comp_list,comp2prop=composition2property_IN718_INVAR):
     n_secs = len(comp_list)
     r1 = mesh.coordinates()[:,0].min()

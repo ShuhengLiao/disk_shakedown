@@ -18,7 +18,8 @@ def run_simulation(mesh,properties,load,omega,t_list,
                    Displacement_BC = 'free-free',
                    plastic_inverval = 1,
                    output_inverval = 1,
-                   saveVTK = False):
+                   saveVTK = False,
+                   sol_folder = './sols'):
     
     # material properties
     rho,cp,kappa,E,sig0,nu,alpha_V = properties
@@ -145,9 +146,9 @@ def run_simulation(mesh,properties,load,omega,t_list,
     Nitermax = 50
     
     if saveVTK:
-        T_vtk_file = File('sols/T.pvd')
-        u_vtk_file = File(f'./sols/u.pvd')
-        p_vtk_file = File(f'./sols/p.pvd')
+        T_vtk_file = File(sol_folder+'/T.pvd')
+        u_vtk_file = File(sol_folder+'/u.pvd')
+        p_vtk_file = File(sol_folder+'/p.pvd')
 
     for n in range(len(t_list)-1): 
         dt.assign(t_list[n+1]-t_list[n])
@@ -225,7 +226,7 @@ if __name__ == "__main__":
     n_cyc = 30 # number of simulated cycles
 
     time_step = 1. # time step size
-    time_step_coarse = 1. # use a coarser time step at during cooling dwell
+    time_step_coarse = 20. # use a coarser time step at during cooling dwell
     plastic_interval = 1 # elasto-plastic simulation every N thermal time step
     saveVTK = True
     output_intervel = 1 # output vtk file 
