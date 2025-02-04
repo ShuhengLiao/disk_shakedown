@@ -61,6 +61,20 @@ def get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc):
         t_list = np.concatenate((t_list,t_list_cycle[1:]+n*t_cycle))
     return t_list
 
+def get_time_list_alt(time_intervals,step_list,n_cyc):
+    t_start = 0.
+    t_cycle = (np.array(time_intervals)).sum()
+    t_list_cycle = np.array([0.])
+    for t, step in zip(time_intervals,step_list):
+        t_list_local = np.linspace(t_start,t_start+t,np.ceil(t/step).astype(int)+1)
+        t_list_cycle = np.concatenate((t_list_cycle,t_list_local[1:]))
+        t_start = t_start + t
+    t_list = t_list_cycle
+    for n in range(1,n_cyc):
+        t_list = np.concatenate((t_list,t_list_cycle[1:]+n*t_cycle))
+    return t_list
+
+
     
 def as_3D_tensor(X):
     return as_tensor([[X[0], 0, X[3]],

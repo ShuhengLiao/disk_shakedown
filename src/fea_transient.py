@@ -225,12 +225,24 @@ if __name__ == "__main__":
     t_cooldwell = 600. # cooling dwell time
     n_cyc = 30 # number of simulated cycles
 
-    time_step = 1. # time step size
-    time_step_coarse = 20. # use a coarser time step at during cooling dwell
+    # #### define time intergration scheme: method 1
+    # time_step = 1. # time step size
+    # time_step_coarse = 20. # use a coarser time step at during cooling dwell
+    # t_cycle = t_rise + t_heatdwell + t_fall + t_cooldwell
+    # t_fine = t_rise + t_heatdwell + t_fall*2.
+    # t_list = get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc)
+
+
+    ### define time intergration scheme: method 2
+    time_intervals = [t_rise, t_heatdwell, t_fall, t_cooldwell]  # you can divided 1 cycle to multiple time intervals.
+    # time_intervals = [t_rise*3, t_heatdwell-t_rise*2, t_fall, t_cooldwell]  # *** Prefered: instead of only using 1s for the rising time, I suggest to use also 1s for initial stage of heat dwell
+    step_list = [1.,5.,1.,20.] # then you can define the time step at each time interval
+    t_list = get_time_list_alt(time_intervals,step_list,n_cyc)
+
+
     plastic_interval = 1 # elasto-plastic simulation every N thermal time step
     saveVTK = True
-    output_intervel = 1 # output vtk file 
-                           
+    output_intervel = 1 # output vtk file                        
 
     Displacement_BC = 'fix-free' # fix-free or free-free
     
@@ -239,9 +251,7 @@ if __name__ == "__main__":
     properties = get_properties(mesh,comp_list)
     load = get_loadfunc(T_load,t_rise,t_heatdwell,t_fall,t_cooldwell)
 
-    t_cycle = t_rise + t_heatdwell + t_fall + t_cooldwell
-    t_fine = t_rise + t_heatdwell + t_fall*2.
-    t_list = get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc)
+
     
     t_list,PEEQ = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK)
     
