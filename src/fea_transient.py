@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     ### define time intergration scheme: method 2
     time_intervals = [t_rise, t_heatdwell, t_fall, t_cooldwell]  # you can divided 1 cycle to multiple time intervals.
-    # time_intervals = [t_rise*3, t_heatdwell-t_rise*2, t_fall, t_cooldwell]  # *** Prefered: instead of only using 1s for the rising time, I suggest to use also 1s for initial stage of heat dwell
+    # time_intervals = [t_rise*3, t_heatdwell-t_rise*2, t_fall, t_cooldwell]  # *** Preferred: instead of only using 1s for the rising time, I suggest to use also 1s for initial stage of heat dwell
     step_list = [1.,5.,1.,20.] # then you can define the time step at each time interval
     t_list = get_time_list_alt(time_intervals,step_list,n_cyc)
 
