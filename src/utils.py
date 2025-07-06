@@ -57,9 +57,12 @@ def get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc):
     t_list_coarse = np.linspace(t_fine,t_cycle,np.ceil((t_cycle-t_fine)/time_step_coarse).astype(int)+1)
     t_list_cycle = np.concatenate((t_list_fine,t_list_coarse[1:]))
     t_list = t_list_cycle
+    cyc_list = np.ones_like(t_list)
+    cyc_list[0] = 0
     for n in range(1,n_cyc):
         t_list = np.concatenate((t_list,t_list_cycle[1:]+n*t_cycle))
-    return t_list
+        cyc_list = np.concatenate((cyc_list,np.ones_like(t_list_cycle[1:])*(n+1)))
+    return np.vstack((t_list,cyc_list))
 
 def get_time_list_alt(time_intervals,step_list,n_cyc):
     t_start = 0.
@@ -70,9 +73,12 @@ def get_time_list_alt(time_intervals,step_list,n_cyc):
         t_list_cycle = np.concatenate((t_list_cycle,t_list_local[1:]))
         t_start = t_start + t
     t_list = t_list_cycle
+    cyc_list = np.ones_like(t_list)
+    cyc_list[0] = 0
     for n in range(1,n_cyc):
         t_list = np.concatenate((t_list,t_list_cycle[1:]+n*t_cycle))
-    return t_list
+        cyc_list = np.concatenate((cyc_list,np.ones_like(t_list_cycle[1:])*(n+1)))
+    return np.vstack((t_list,cyc_list))
 
 
     
