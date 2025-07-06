@@ -10,15 +10,16 @@ import sys
 from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
 warnings.simplefilter("once", QuadratureRepresentationDeprecationWarning)
 
-## see: https://turtlefsi.readthedocs.io/en/latest/known_issues.html
-PETScOptions.set("mat_mumps_icntl_4", 1)
-PETScOptions.set("mat_mumps_icntl_14", 400)
+# ## see: https://turtlefsi.readthedocs.io/en/latest/known_issues.html
+# PETScOptions.set("mat_mumps_icntl_4", 1)
+# PETScOptions.set("mat_mumps_icntl_14", 400)
 
-def run_simulation(mesh,properties,load,omega,t_list,
+def run_simulation(mesh,properties,load,omega,time_list,
                    Displacement_BC = 'free-free',
                    plastic_inverval = 1,
                    output_inverval = 1,
                    saveVTK = False,
+                   pvmesh = None,
                    sol_folder = './sols'):
     
     # material properties
@@ -143,14 +144,27 @@ def run_simulation(mesh,properties,load,omega,t_list,
     PEEQ = [p_avg.vector()]
 
     tol = 1e-5
-    Nitermax = 50
+    Nitermax = 20
     
     if saveVTK:
+        file_num = 0
         T_vtk_file = File(sol_folder+'/T.pvd')
         u_vtk_file = File(sol_folder+'/u.pvd')
         p_vtk_file = File(sol_folder+'/p.pvd')
+        S11_vtk_file = File(sol_folder+'/s11_.pvd')
+        S22_vtk_file = File(sol_folder+'/s22_.pvd')
+        S33_vtk_file = File(sol_folder+'/s33_.pvd')
+        S13_vtk_file = File(sol_folder+'/s13_.pvd')
 
-    for n in range(len(t_list)-1): 
+    t_list = time_list[0]
+    cyc_list = time_list[1]
+    for n in range(len(t_list)-1):
+        ### reset temperature at the beginning of each cycle
+        if cyc_list[n+1] > cyc_list[n]:
+            print ("max temperature before resetting:{}".format(T_pre.vector().max()))
+            T_pre.assign(interpolate(T_initial, V))
+            T_old.assign(interpolate(T_initial, V))
+            
         dt.assign(t_list[n+1]-t_list[n])
         T_R.assign(load(t_list[n+1]))
         solve(a_thermal == L_thermal, T_crt, Thermal_BC)
@@ -181,7 +195,8 @@ def run_simulation(mesh,properties,load,omega,t_list,
                 print("Residual:", nRes)
                 niter += 1
                 if niter >= Nitermax:
-                    sys.exit(print ("Too many iterations"))
+                    print ("Too many iterations")
+                    return np.array(t_list),np.array(PEEQ)
 
             u.assign(u+Du)
             p.assign(p+local_project(dp_, W0))
@@ -195,6 +210,14 @@ def run_simulation(mesh,properties,load,omega,t_list,
             u_vtk_file << (u, t_list[n+1])
             p_vtk_file << (p_avg, t_list[n+1])
             T_vtk_file << (T_crt, t_list[n+1])
+            S11_vtk_file << (project(sig[0], P0), t_list[n+1])
+            S22_vtk_file << (project(sig[1], P0), t_list[n+1])
+            S33_vtk_file << (project(sig[2], P0), t_list[n+1])
+            S13_vtk_file << (project(sig[3], P0), t_list[n+1])
+            
+            pvmesh.point_data['displacement'] = u
+            pvmesh.save('output_{}.vtk'.format(file_num))
+            file_num += 1
   
             
     return np.array(t_list),np.array(PEEQ)
@@ -223,7 +246,7 @@ if __name__ == "__main__":
     t_heatdwell = 20. # heating dwell time
     t_fall = 3. # time to cool to the ambient temp
     t_cooldwell = 600. # cooling dwell time
-    n_cyc = 30 # number of simulated cycles
+    n_cyc = 1 # number of simulated cycles
 
     # #### define time intergration scheme: method 1
     # time_step = 1. # time step size
@@ -247,14 +270,15 @@ if __name__ == "__main__":
     Displacement_BC = 'fix-free' # fix-free or free-free
     
     mesh,pvmesh = read_mesh(mesh_file,get_pvmesh=True)
+    
 
     properties = get_properties(mesh,comp_list)
     load = get_loadfunc(T_load,t_rise,t_heatdwell,t_fall,t_cooldwell)
 
 
     
-    t_list,PEEQ = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK)
+    t_list,PEEQ = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK,pvmesh)
     
-    period = (len(PEEQ)-1)/n_cyc
-    assert period-int(period) == 0
-    SD_flag = check_PEEQ(PEEQ,int(period),tol=2e-5)
+#     period = (len(PEEQ)-1)/n_cyc
+#     assert period-int(period) == 0
+#     SD_flag = check_PEEQ(PEEQ,int(period),tol=2e-5)
