@@ -42,8 +42,10 @@ def get_boundary(mesh):
     return bound_left,bound_right,bound_bot,bound_right
 
 
-def get_loadfunc(T_load,t_rise,t_heatdwell,t_fall,t_cooldwell):
+def get_loadfunc(T_load,t_rise,t_heatdwell,t_fall,t_cooldwell,virtual_step=True):
     cycle_time = t_rise + t_heatdwell + t_fall + t_cooldwell
+    if virtual_step:
+        cycle_time = cycle_time + 1
     def load(t):
         t = t % cycle_time
         return  T_load * np.interp(t,[0,t_rise,t_rise+t_heatdwell,
@@ -56,6 +58,8 @@ def get_time_list(t_cycle,t_fine,time_step,time_step_coarse,n_cyc):
     t_list_fine = np.linspace(0,t_fine,int(t_fine/time_step)+1)
     t_list_coarse = np.linspace(t_fine,t_cycle,np.ceil((t_cycle-t_fine)/time_step_coarse).astype(int)+1)
     t_list_cycle = np.concatenate((t_list_fine,t_list_coarse[1:]))
+    t_list_cycle = np.concatenate((t_list_cycle,t_list_cycle[-1:]+1)) # add 1s virtual time step
+    t_cycle = t_list_cycle[-1]
     t_list = t_list_cycle
     cyc_list = np.ones_like(t_list)
     cyc_list[0] = 0
@@ -72,6 +76,8 @@ def get_time_list_alt(time_intervals,step_list,n_cyc):
         t_list_local = np.linspace(t_start,t_start+t,np.ceil(t/step).astype(int)+1)
         t_list_cycle = np.concatenate((t_list_cycle,t_list_local[1:]))
         t_start = t_start + t
+    t_list_cycle = np.concatenate((t_list_cycle,t_list_cycle[-1:]+1)) # add 1s virtual time step
+    t_cycle = t_list_cycle[-1]
     t_list = t_list_cycle
     cyc_list = np.ones_like(t_list)
     cyc_list[0] = 0
