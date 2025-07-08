@@ -19,8 +19,8 @@ def run_simulation(mesh,properties,load,omega,time_list,
                    plastic_inverval = 1,
                    output_inverval = 1,
                    saveVTK = False,
-                   pvmesh = None,
-                   sol_folder = './sols'):
+                   sol_folder = './sols',
+                   pvmesh = None):
     
     # material properties
     rho,cp,kappa,E,sig0,nu,alpha_V = properties
@@ -158,17 +158,17 @@ def run_simulation(mesh,properties,load,omega,time_list,
 
     t_list = time_list[0]
     cyc_list = time_list[1]
-    for n in range(len(t_list)-1):
-        ### reset temperature at the beginning of each cycle
-        if cyc_list[n+1] > cyc_list[n]:
-            print ("max temperature before resetting:{}".format(T_pre.vector().max()))
-            T_pre.assign(interpolate(T_initial, V))
-            T_old.assign(interpolate(T_initial, V))
-            
+    reset_flag = np.roll(cyc_list,-1)-cyc_list
+    reset_flag[-1] = 1
+    for n in range(len(t_list)-1): 
         dt.assign(t_list[n+1]-t_list[n])
         T_R.assign(load(t_list[n+1]))
         solve(a_thermal == L_thermal, T_crt, Thermal_BC)
         T_pre.assign(T_crt)
+
+        if reset_flag[n+1]: ## reset tempeature
+            T_crt.assign(interpolate(T_initial, V))
+            T_pre.assign(T_crt)
 
         if (n+1)% plastic_inverval == 0:
             dT.assign(T_crt-T_old)
@@ -215,8 +215,8 @@ def run_simulation(mesh,properties,load,omega,time_list,
             S33_vtk_file << (project(sig[2], P0), t_list[n+1])
             S13_vtk_file << (project(sig[3], P0), t_list[n+1])
             
-            pvmesh.point_data['displacement'] = u
-            pvmesh.save('output_{}.vtk'.format(file_num))
+            # pvmesh.point_data['displacement'] = u
+            # pvmesh.save('output_{}.vtk'.format(file_num))
             file_num += 1
   
             
