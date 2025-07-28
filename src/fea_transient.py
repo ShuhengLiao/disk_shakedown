@@ -116,6 +116,14 @@ def run_simulation(mesh,properties,load,omega,time_list,
             solver.solve_local_rhs(u)
             return
 
+    P0 = FunctionSpace(mesh, "DG", 0)
+    def output_strain(e):
+        e11 = project(e[0,0],P0).vector()
+        e22 = project(e[1,1],P0).vector()
+        e33 = project(e[2,2],P0).vector()
+        e13 = project(e[0,2],P0).vector()
+        return np.array([e11,e22,e33,e13])
+
     a_Newton = inner(eps(v_), sigma_tang(u_))*x[0]*dxm
     res = -inner(eps(u_), as_3D_tensor(sig))*x[0]*dxm + F_int(u_)*x[0]*dxm
     
@@ -136,12 +144,9 @@ def run_simulation(mesh,properties,load,omega,time_list,
     else:
         Mech_BC = [U_bc_B]
     
-    P0 = FunctionSpace(mesh, "DG", 0)
     p_avg = Function(P0,name="Plastic strain")
     T_crt = Function(V, name="Temperature")
     dT = Function(V)
-
-    PEEQ = [p_avg.vector()]
 
     tol = 1e-5
     Nitermax = 20
@@ -160,6 +165,8 @@ def run_simulation(mesh,properties,load,omega,time_list,
     cyc_list = time_list[1]
     reset_flag = np.roll(cyc_list,-1)-cyc_list
     reset_flag[-1] = 1
+    PEEQ = np.zeros((t_list.shape[0],mesh.cells().shape[0]))
+    strain = np.zeros((t_list.shape[0],mesh.cells().shape[0],4))
     for n in range(len(t_list)-1): 
         dt.assign(t_list[n+1]-t_list[n])
         T_R.assign(load(t_list[n+1]))
@@ -204,7 +211,10 @@ def run_simulation(mesh,properties,load,omega,time_list,
             T_old.assign(T_crt)
             sig_old.assign(sig)
 
-            PEEQ.append(p_avg.vector()) 
+            # PEEQ.append(p_avg.vector())
+            # strain.append(output_strain(eps(u)))
+            PEEQ[n+1] = p_avg.vector()
+            strain[n+1] = output_strain(eps(u)).T
             
         if (n+1)% output_inverval == 0 and saveVTK:
             u_vtk_file << (u, t_list[n+1])
@@ -220,7 +230,7 @@ def run_simulation(mesh,properties,load,omega,time_list,
             file_num += 1
   
             
-    return np.array(t_list),np.array(PEEQ)
+    return np.array(t_list),np.array(PEEQ),np.array(strain)
 
 def check_PEEQ(PEEQ,period,tol=2e-5):
     if (PEEQ[-1] - PEEQ[-(1+period)]).max() < tol:
@@ -245,8 +255,8 @@ if __name__ == "__main__":
     t_rise = 1. # time to heat to the max temp.
     t_heatdwell = 20. # heating dwell time
     t_fall = 3. # time to cool to the ambient temp
-    t_cooldwell = 600. # cooling dwell time
-    n_cyc = 1 # number of simulated cycles
+    t_cooldwell = 20. # cooling dwell time
+    n_cyc = 5 # number of simulated cycles
 
     # #### define time intergration scheme: method 1
     # time_step = 1. # time step size
@@ -264,7 +274,7 @@ if __name__ == "__main__":
 
 
     plastic_interval = 1 # elasto-plastic simulation every N thermal time step
-    saveVTK = True
+    saveVTK = False
     output_intervel = 1 # output vtk file                        
 
     Displacement_BC = 'fix-free' # fix-free or free-free
@@ -277,7 +287,9 @@ if __name__ == "__main__":
 
 
     
-    t_list,PEEQ = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK,pvmesh)
+    t_list,PEEQ,eps = run_simulation(mesh,properties,load,omega,t_list,Displacement_BC,plastic_interval,output_intervel,saveVTK,pvmesh)
+
+    max_Princ,max_Shear,BM,VM = fatigue_criter_range(eps,n_cyc)
     
 #     period = (len(PEEQ)-1)/n_cyc
 #     assert period-int(period) == 0
