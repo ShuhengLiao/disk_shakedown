@@ -92,3 +92,69 @@ def as_3D_tensor(X):
     return as_tensor([[X[0], 0, X[3]],
                       [0, X[1], 0],
                       [X[3], 0, X[2]]])
+
+def cal_principal_strain(eps):
+    eps_r  = eps[:,:,0]
+    eps_th  = eps[:,:,1]
+    eps_z  = eps[:,:,2]
+    eps_rz  = eps[:,:,3]
+    eps1 = (eps_r + eps_z)/2 + np.sqrt((eps_r-eps_z)**2/4.+eps_rz**2)
+    eps2 = eps_th
+    eps3 = (eps_r + eps_z)/2 - np.sqrt((eps_r-eps_z)**2/4.+eps_rz**2)
+    eps_PI = np.concatenate((eps1[:,:,None],eps2[:,:,None],eps3[:,:,None]),axis=-1)
+    return eps_PI
+
+def max_principal(eps_PI):
+    eps1 = eps_PI.max(axis=-1)
+    return eps1
+
+def max_shear(eps_PI):
+    eps1 = eps_PI.max(axis=-1)
+    eps3 = eps_PI.min(axis=-1)
+    gamma = eps1-eps3
+    return gamma
+
+def Brown_Miller(eps_PI):
+    eps1 = eps_PI.max(axis=-1)
+    eps3 = eps_PI.min(axis=-1)
+    gamma = eps1-eps3
+    epsN = (eps1+eps3)/2.
+    return gamma + epsN
+
+def von_Mises(eps_PI):
+    eps_VM = np.sqrt(2/9.*((eps_PI[:,:,0]-eps_PI[:,:,1])**2 + 
+                           (eps_PI[:,:,1]-eps_PI[:,:,2])**2 +
+                           (eps_PI[:,:,2]-eps_PI[:,:,0])**2))
+    return eps_VM
+
+def cal_strain_range(strain,period,n_cyc):
+    strain_max = [strain[i*period:(i+1)*period+1].max(axis=0) for i in range(n_cyc)]
+    strain_min = [strain[i*period:(i+1)*period+1].min(axis=0) for i in range(n_cyc)]
+    strain_range = (np.array(strain_max)-np.array(strain_min))/2.
+    return strain_range
+
+def fatigue_criter_range(eps,n_cyc,criter='all'):
+    assert int((eps.shape[0] - 1)/n_cyc) == (eps.shape[0] - 1)/n_cyc
+    period = int((eps.shape[0] - 1)/n_cyc)
+    eps_PI = cal_principal_strain(eps)
+    if criter == 'max_princicpal':
+        strain = max_principal(eps_PI)
+        return cal_strain_range(strain,period,n_cyc)
+    if criter == 'max_shear':
+        strain = max_shear(eps_PI)
+        return cal_strain_range(strain,period,n_cyc)
+    if criter == 'Brown_Miller':
+        strain = Brown_Miller(eps_PI)
+        return cal_strain_range(strain,period,n_cyc)
+    if criter == 'von_Mises':
+        strain = von_Mises(eps_PI)
+        return cal_strain_range(strain,period,n_cyc)
+    if criter == 'all':
+        strain1 = max_principal(eps_PI)
+        strain2 = max_shear(eps_PI)
+        strain3 = Brown_Miller(eps_PI)
+        strain4 = von_Mises(eps_PI)
+        return (cal_strain_range(strain1,period,n_cyc), 
+                cal_strain_range(strain2,period,n_cyc), 
+                cal_strain_range(strain3,period,n_cyc),
+                cal_strain_range(strain4,period,n_cyc))
